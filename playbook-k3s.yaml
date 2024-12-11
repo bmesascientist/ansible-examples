@@ -1,5 +1,5 @@
 - name: Install K3S
-- hosts: all
+- hosts: servers
   become: yes
   become_method: sudo
   vars:
