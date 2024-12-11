@@ -2,7 +2,7 @@
   hosts: all
   become: yes
   vars:
-    user: "{{ ansible_user }}" # baglandigimiz kullanici
+    user: "semaphore"
   tasks:
     - name: Update server
       ansible.builtin.apt:
@@ -73,6 +73,8 @@
         src: /etc/rancher/k3s/k3s.yaml
         dest: "{{ user_home }}/.kube/config"
         remote_src: yes
+        owner: "{{ user }}"
+        group: "{{ user }}"
         mode: "0644"
 
     - name: Update KUBECONFIG environment variable
