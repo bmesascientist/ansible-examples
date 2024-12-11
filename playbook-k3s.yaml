@@ -1,0 +1,95 @@
+- name: Install K3S
+  hosts: all
+  become: yes
+  vars:
+    user: "{{ ansible_user }}" # baglandigimiz kullanici
+  tasks:
+    - name: Update server
+      ansible.builtin.apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Disable UFW
+      shell: sudo ufw disable
+
+    - name: Disable swap
+      command: swapoff -a
+
+    - name: Installation script
+      shell: |
+        curl -sfL https://get.k3s.io | sh -
+
+    - name: Ensure K3S service is running
+      service:
+        name: k3s
+        state: started
+        enabled: yes
+
+    - name: Wait for pods to be created
+      shell: k3s kubectl get pods --all-namespaces | wc -l
+      register: pod_count
+      until: pod_count.stdout | int > 1
+      retries: 30
+      delay: 10
+
+    - name: Wait for all pods to be running or completed
+      shell: k3s kubectl get pods --all-namespaces --field-selector=status.phase!=Running,status.phase!=Succeeded | wc -l
+      register: pod_count
+      until: pod_count.stdout | int == 0
+      retries: 30
+      delay: 10
+
+    - name: Update /etc/hosts file
+      lineinfile:
+        path: /etc/hosts
+        line: "{{ item }}"
+      with_items:
+        - "127.0.0.1 app.localhost"
+        - "127.0.0.1 customer-1.localhost"
+        - "127.0.0.1 customer-2.localhost"
+
+    - name: Get user's home directory
+      become: yes
+      become_user: "{{ user }}"
+      command: echo $HOME
+      register: user_home_result
+      changed_when: false
+
+    - name: Set user_home variable
+      set_fact:
+        user_home: "{{ user_home_result.stdout }}"
+
+    - name: Ensure .kube directory exists
+      become: yes
+      become_user: "{{ user }}"
+      file:
+        path: "{{ user_home }}/.kube"
+        state: directory
+        mode: "0700"
+
+    - name: Copy k3s.yaml to user's home directory
+      become: yes
+      copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: "{{ user_home }}/.kube/config"
+        remote_src: yes
+        mode: "0644"
+
+    - name: Update KUBECONFIG environment variable
+      become: yes
+      become_user: "{{ user }}"
+      lineinfile:
+        path: "{{ user_home }}/.bashrc"
+        line: "export KUBECONFIG=$HOME/.kube/config"
+
+    - name: Reboot the system
+      reboot:
+        msg: "System is rebooting"
+        pre_reboot_delay: 5
+        post_reboot_delay: 20
+        reboot_timeout: 600
+
+    - name: Wait for system to come back online
+      wait_for_connection:
+        delay: 10
+        timeout: 10
