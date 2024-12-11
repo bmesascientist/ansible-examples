@@ -3,7 +3,7 @@
   become: yes
   become_method: sudo
   vars:
-    user: "semaphore"
+    user: "k3s-0-user-worker-0"
   tasks:
     - name: Update server
       ansible.builtin.apt:
