@@ -1,3 +1,4 @@
+---
 - name: Install K3S
 - hosts: all
   become: yes
