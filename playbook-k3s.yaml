@@ -1,6 +1,7 @@
 - name: Install K3S
-  hosts: all
+- hosts: all
   become: yes
+  become_method: sudo
   vars:
     user: "semaphore"
   tasks:
